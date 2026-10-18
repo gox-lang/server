@@ -1,0 +1,62 @@
+# Editors
+/.vscode/
+/.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# GOX build output
+.build/
+/build/
+/dist/
+
+# Installed client dependencies (including example projects)
+node_modules/
+.pnpm-store/
+
+# Go test output
+*.test
+*.out
+
+# Coverage
+coverage.out
+coverage.html
+*.prof
+*.pprof
+
+# GOX toolchain
+/.toolchain/
+/repository/
+
+# Local ACME accounts, certificates and private keys
+/.tls/
+
+# Local development
+/examples/
+/gox.sh
+/.codex/
+/.agents/
+/gox-server
+/gox-server.exe
+
+# Local environment files; keep shareable configuration templates
+.env
+.env.*
+!.env.example
+!.env.sample
+!.env.template
+
+# Editor temporary files
+*.swp
+*.swo
+*~
+
+# Locally built CLI binaries
+/gox
+/gox.exe
+/server
+/server.exe

@@ -1,0 +1,244 @@
+module index
+
+import "github.com/gox-lang/gox"
+
+client Menu react {
+    src: "menu/menu.jsx"
+    dev: false
+}
+
+type User struct {
+    Name string
+    Active bool
+}
+
+func findUser(id string) (*User, bool) {
+    if id == "ana" {
+        return &User{Name: "Ana", Active: true}, true
+    }
+    return nil, false
+}
+
+func Panel(title string, children gox.Component) gox.Component {
+    return <section>
+        <h3>{{ title }}</h3>
+        <&children>
+            <p>Fallback: no se proporcionaron hijos.</p>
+        </&children>
+    </section>
+}
+
+func Layout(header gox.Component, children gox.Component) gox.Component {
+    return <section>
+        <&header />
+        <&children />
+    </section>
+}
+
+func Label(left string, right string) gox.Component {
+    return <p>{{ left }} / {{ right }}</p>
+}
+
+func GET(ctx *gox.Context) gox.Page {
+    calls := 0
+    emptyCalls := 0
+    outerCalls := 0
+    innerCalls := 0
+    repeatCalls := 0
+
+    items := func() []string {
+        calls++
+        return []string{"uno", "dos"}
+    }
+    emptyItems := func() []string {
+        emptyCalls++
+        return nil
+    }
+    rows := func() []int {
+        outerCalls++
+        return []int{0, 2}
+    }
+    columns := func(count int) []int {
+        innerCalls++
+        if count == 0 {
+            return nil
+        }
+        return []int{10, 20}
+    }
+    attempts := func() int {
+        repeatCalls++
+        return 2
+    }
+
+    heading := <h3>Componente pasado como atributo</h3>
+    inline := <&Panel title="Panel inline sin hijos" />
+    goxRange1 := "Variable del usuario conservada"
+    menuName := "Mundo"
+
+    users := map[string]*User{"ana": {Name: "Ana mapa", Active: true}}
+    ch := make(chan string, 1)
+    ch <- "mensaje del canal"
+    close(ch)
+    var value any = &User{Name: "Ana tipo", Active: true}
+    var otherValue any = "no soy User"
+    user := "usuario exterior"
+    ok := "ok exterior"
+    assignCalls := 0
+    lookup := func(id string) (*User, bool) {
+        assignCalls++
+        return findUser(id)
+    }
+
+    return <>
+        <!DOCTYPE html>
+        <html lang="es">
+            <head>
+                <meta charset="utf-8" />
+                <title>Comprobación de regresiones GOX</title>
+            </head>
+            <body>
+                <h1>Componentes y bucles GOX</h1>
+
+                <h2>1. Hijos, fallback y componentes inline</h2>
+                <p>Esperado: dos fallbacks, un contenido hijo y un encabezado recibido como atributo.</p>
+                <&Panel title="Panel sin hijos" />
+                <&Panel title="Panel con hijos">
+                    <p>Contenido hijo: aquí NO debe aparecer el fallback.</p>
+                </&Panel>
+                <&inline />
+                <&Layout header={{ heading }}>
+                    <p>El atributo header y los hijos son independientes.</p>
+                </&Layout>
+                <p>Esperado en la siguiente línea: izquierda / derecha.</p>
+                <&Label right="derecha" left="izquierda" />
+
+                <h2>2. For avanzado: una sola evaluación</h2>
+                <p>Esperado: 0: uno, 1: dos; llamadas a items: 1.</p>
+                <:for index item range={{ items() }}>
+                    <:empty><p>ERROR: items no está vacío.</p></:empty>
+                    <:each><p>{{ index }}: {{ item }}</p></:each>
+                </:for>
+                <p>Llamadas a items: {{ calls }}</p>
+
+                <h2>3. Colección vacía</h2>
+                <p>Esperado: solo EMPTY; llamadas a emptyItems: 1.</p>
+                <:for range={{ emptyItems() }}>
+                    <:empty><p>EMPTY</p></:empty>
+                    <:each><p>ERROR: no debe ejecutarse EACH.</p></:each>
+                </:for>
+                <p>Llamadas a emptyItems: {{ emptyCalls }}</p>
+
+                <h2>4. For avanzado dentro de for avanzado y repeat</h2>
+                <p>Esperado: dos vueltas; en cada una, fila 0 vacía y fila 1 con columnas 10 y 20.</p>
+                <:repeat attemp times={{ attempts() }}>
+                    <h3>Vuelta {{ attemp }}</h3>
+                    <:for row count range={{ rows() }}>
+                        <:empty><p>ERROR: rows no está vacío.</p></:empty>
+                        <:each>
+                            <:for column value range={{ columns(count) }}>
+                                <:empty><p>Fila {{ row }} vacía.</p></:empty>
+                                <:each><p>Fila {{ row }}, columna {{ column }}: {{ value }}</p></:each>
+                            </:for>
+                        </:each>
+                    </:for>
+                </:repeat>
+                <p>attempts: {{ repeatCalls }} — esperado: 1.</p>
+                <p>rows: {{ outerCalls }} — esperado: 2.</p>
+                <p>columns: {{ innerCalls }} — esperado: 4.</p>
+
+                <h2>5. Repeat anidado con el mismo nombre</h2>
+                <p>Esperado: exterior 0, interiores 0 y 1, exterior 0; después lo mismo con exterior 1.</p>
+                <:repeat attemp times={{ 2 }}>
+                    <p>Exterior antes: {{ attemp }}</p>
+                    <:repeat attemp times={{ 2 }}>
+                        <p>Interior: {{ attemp }}</p>
+                    </:repeat>
+                    <p>Exterior después: {{ attemp }}</p>
+                </:repeat>
+
+                <h2>6. Nombre del usuario y variable temporal</h2>
+                <:for range={{ []int{1} }}>
+                    <:empty><p>ERROR: no está vacío.</p></:empty>
+                    <:each><p>{{ goxRange1 }}</p></:each>
+                </:for>
+                <p>Esperado arriba: Variable del usuario conservada.</p>
+
+                <h2>7. Client React y SSRT</h2>
+                <p>Sin SSRT: vacío inicialmente; al cargar React aparece Hola Mundo (React).</p>
+                <@Menu hydrate="load" name={{ menuName }} />
+
+                <p>Con SSRT: Hola Mundo (SSRT) permanece hasta pasar el cursor sobre el saludo; entonces aparece Hola Mundo (React).</p>
+                <@Menu hydrate="hover" name={{ menuName }}>
+                    <p>Hola {{ menuName }} (SSRT)</p>
+                </@Menu>
+                <h2>8. If simples con assign</h2>
+                <p>Esperado: Ana, mensaje del canal, Ana mapa y Ana tipo.</p>
+                <:if user ok :assign={{ findUser("ana") }} condition={{ ok }}>
+                    <p>Método: {{ user.Name }}; activo: {{ user.Active }}</p>
+                </:if>
+                <:if value ok :assign={{ <-ch }} condition={{ ok }}>
+                    <p>Canal: {{ value }}</p>
+                </:if>
+                <:if user ok :assign={{ users["ana"] }} condition={{ ok }}>
+                    <p>Mapa: {{ user.Name }}</p>
+                </:if>
+                <:if user ok :assign={{ value.(*User) }} condition={{ ok }}>
+                    <p>Tipo: {{ user.Name }}</p>
+                </:if>
+                <p>Después de los if: {{ user }} / {{ ok }}.</p>
+
+                <h2>9. If-group: alcance entre ramas</h2>
+                <p>Esperado: mapa recuperado: Ana mapa; lookup se llama una vez.</p>
+                <:if-group>
+                    <:if candidate found :assign={{ lookup("missing") }} condition={{ found }}>
+                        <p>ERROR: no existe {{ candidate.Name }}.</p>
+                    </:if>
+                    <:else-if user ok :assign={{ users["ana"] }} condition={{ ok }}>
+                        <p>Mapa recuperado: {{ user.Name }}; found anterior: {{ found }}; candidate nil: {{ candidate == nil }}.</p>
+                    </:else-if>
+                    <:else-if user ok :assign={{ lookup("ana") }} condition={{ ok }}>
+                        <p>ERROR: esta llamada no debe ejecutarse: {{ user.Name }}.</p>
+                    </:else-if>
+                    <:else>
+                        <p>ERROR: ninguna rama; found: {{ found }}; ok: {{ ok }}; user nil: {{ user == nil }}.</p>
+                    </:else>
+                </:if-group>
+                <p>Llamadas a lookup: {{ assignCalls }} — esperado: 1.</p>
+
+                <h2>10. Canal cerrado, mapa ausente y aserción fallida</h2>
+                <p>Esperado: solo ELSE; tres booleanos false, mensaje vacío y dos punteros nil.</p>
+                <:if-group>
+                    <:if message received :assign={{ <-ch }} condition={{ received }}>
+                        <p>ERROR: canal agotado: {{ message }}.</p>
+                    </:if>
+                    <:else-if missing exists :assign={{ users["missing"] }} condition={{ exists }}>
+                        <p>ERROR: mapa ausente: {{ missing.Name }}.</p>
+                    </:else-if>
+                    <:else-if typed valid :assign={{ otherValue.(*User) }} condition={{ valid }}>
+                        <p>ERROR: tipo incorrecto: {{ typed.Name }}.</p>
+                    </:else-if>
+                    <:else>
+                        <p>ELSE: received={{ received }}, exists={{ exists }}, valid={{ valid }}.</p>
+                        <p>message vacío: {{ message == "" }}; missing nil: {{ missing == nil }}; typed nil: {{ typed == nil }}.</p>
+                    </:else>
+                </:if-group>
+
+                <h2>11. Sombreado y alcance anidado</h2>
+                <p>Esperado: usuario exterior → usuario exterior / if → usuario exterior / if / else-if → usuario exterior / if → usuario exterior.</p>
+                <p>{{ user }}</p>
+                <:if user :assign={{ user + " / if" }} condition={{ user != "" }}>
+                    <p>{{ user }}</p>
+                    <:if-group>
+                        <:if condition={{ false }}><p>ERROR</p></:if>
+                        <:else-if user :assign={{ user + " / else-if" }} condition={{ user != "" }}>
+                            <p>{{ user }}</p>
+                        </:else-if>
+                    </:if-group>
+                    <p>{{ user }}</p>
+                </:if>
+                <p>{{ user }}</p>
+                <p>ok exterior conservado: {{ ok }}.</p>
+            </body>
+        </html>
+    </>
+}
