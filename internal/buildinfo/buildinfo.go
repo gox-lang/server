@@ -12,7 +12,7 @@ var (
 	GoxVersion       = "dev"
 	GoVersion        = runtime.Version()
 	GoxModule        = "github.com/gox-lang/gox"
-	GoxModuleVersion = "v1.1.0"
+	GoxModuleVersion = "v1.1.1"
 	NodeVersion      = "node22.18.0"
 	PNPMVersion      = "pnpm11.9.0"
 )

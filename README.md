@@ -103,7 +103,7 @@ published SDK version as this server:
 GOX_REDIS_ADAPTER_DIR=../redisadapter go test ./internal/deps -run TestSDKVersionCompatibility
 ```
 
-Both consumers currently require GOX SDK `v1.1.0`. Local SDK replacement
+Both consumers currently require GOX SDK `v1.1.1`. Local SDK replacement
 directives must not be committed.
 
 See [RELEASING.md](RELEASING.md) for repository setup and release order.

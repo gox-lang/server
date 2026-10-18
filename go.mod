@@ -7,7 +7,7 @@ require (
 	github.com/caddyserver/certmagic v0.25.6
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/gorilla/websocket v1.5.3
-	github.com/gox-lang/gox v1.1.0
+	github.com/gox-lang/gox v1.1.1
 	github.com/klauspost/compress v1.18.6
 	github.com/libdns/libdns v1.1.1
 	github.com/miekg/dns v1.1.73

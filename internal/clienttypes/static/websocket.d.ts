@@ -248,7 +248,7 @@ declare module "@gox/websocket" {
     when(event: "error", handler: (error: GoxSocketError) => void): this
     when(event: string, handler: (...args: unknown[]) => unknown): this
     on<Event extends keyof GoxChannelOnEvents<Name> & string>(event: Event, handler: GoxIncomingHandler<GoxChannelOnEvents<Name>[Event]>): this
-    on(event: string, handler: (...args: unknown[]) => unknown): this
+    on<Event extends string>(event: Event & (Event extends keyof GoxChannelOnEvents<Name> ? never : unknown), handler: (...args: unknown[]) => unknown): this
     emit<Event extends keyof GoxChannelEmitEvents<Name> & string>(event: Event, ...values: GoxEventArgs<GoxChannelEmitEvents<Name>[Event]>): ChannelEmission<GoxChannelEmissionReply<GoxChannelEmitEvents<Name>[Event]>>
     emit<T = unknown, Event extends string = string>(event: Event & (Event extends keyof GoxChannelEmitEvents<Name> ? never : unknown), ...values: GoxValue[]): ChannelEmission<T>
     leave(): this
@@ -280,7 +280,7 @@ declare module "@gox/websocket" {
     when(event: "error", handler: (error: GoxSocketError) => void): this
     when(event: string, handler: (...args: unknown[]) => unknown): this
     on<Event extends keyof GoxSocketClientOnEvents & string>(event: Event, handler: GoxIncomingHandler<GoxSocketClientOnEvents[Event]>): this
-    on(event: string, handler: (...args: unknown[]) => GoxValue | Promise<GoxValue> | void): this
+    on<Event extends string>(event: Event & (Event extends keyof GoxSocketClientOnEvents ? never : unknown), handler: (...args: unknown[]) => GoxValue | Promise<GoxValue> | void): this
     emit<Event extends keyof GoxSocketClientEmitEvents & string>(event: Event, ...values: GoxEventArgs<GoxSocketClientEmitEvents[Event]>): Promise<GoxOutgoingReply<GoxSocketClientEmitEvents[Event]>>
     emit<T = unknown, Event extends string = string>(event: Event & (Event extends keyof GoxSocketClientEmitEvents ? never : unknown), form: HTMLFormElement): Promise<T | undefined>
     emit<T = unknown, Event extends string = string>(event: Event & (Event extends keyof GoxSocketClientEmitEvents ? never : unknown), ...values: GoxValue[]): Promise<T | undefined>

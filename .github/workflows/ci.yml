@@ -21,6 +21,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Install TypeScript for contract tests
+        run: npm install --global typescript@5.9.3
       - name: Test Go packages
         run: go test ./...
       - name: Test browser runtime

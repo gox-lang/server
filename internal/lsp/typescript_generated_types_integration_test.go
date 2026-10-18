@@ -90,8 +90,14 @@ void reply
 // @ts-expect-error known Channel events cannot fall through to the generic emit overload
 chat.emit("message", 42)
 chat.on("presence", (id) => { const value: number = id; void value })
+// @ts-expect-error known event parameter types must not use the fallback
+chat.on("presence", (id: string) => {})
 
 const dynamicEvent: string = "runtime-event"
+socket.on(dynamicEvent, () => "dynamic")
+chat.on(dynamicEvent, () => "dynamic")
+socket.on("custom-event", () => "custom")
+chat.on("custom-event", () => "custom")
 const dynamicSocketReply: Promise<number | undefined> = socket.emit<number>(dynamicEvent, 42)
 void dynamicSocketReply
 const dynamicChannelReply = chat.emit<number>(dynamicEvent, 42)
