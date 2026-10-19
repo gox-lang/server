@@ -65,12 +65,17 @@ or run this command with the VS Code CLI:
 code --install-extension gox-lang.gox-tools
 ```
 
-Install the GOX CLI first and make `gox` available in `PATH`. Open a trusted GOX
-workspace and a `.gox` file to start the language server automatically. For a
-custom CLI location, set `gox.languageServer.path` to its absolute executable
-path in VS Code settings. Use **GOX: Restart Language Server** after updating
-the CLI. VS Code 1.91 or newer is required. The language server prepares its managed Go
-toolchain automatically. Use WSL on Windows to run GOX applications.
+With GOX Tools 0.1.4 or newer, the extension automatically locates GOX or
+installs an official release for the extension host. No separate Go installation
+is required: `gox ls` prepares its managed Go toolchain. Existing installations
+and a custom `gox.languageServer.path` are respected.
+
+New VS Code terminals receive the GOX executable directory in `PATH`. Managed
+installations receive stable GOX updates through the language server; running
+applications are not restarted. Use `gox update` for an explicit update.
+
+VS Code 1.91 or newer is required. Windows supports the native language server;
+use VS Code connected to WSL for application development and execution.
 
 ## Updates
 
