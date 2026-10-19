@@ -64,3 +64,6 @@ coverage.html
 # Release workflow staging
 /.release-home/
 /.release-adapter/
+
+# Local agent instructions
+AGENTS.md
