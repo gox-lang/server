@@ -35,9 +35,12 @@ must not install it or force-upgrade it automatically.
 
 The server source can be built with `go build -trimpath -o ./build/gox ./cmd/gox`. Publish CLI
 binaries from `./cmd/gox`. Users install the same command with
-`go install -trimpath github.com/gox-lang/server/cmd/gox@latest`.
+`go install github.com/gox-lang/server/cmd/gox@latest`.
 Before release, run `python3 scripts/smoke-install.py` to verify Go produces
-the executable name `gox` without an explicit output override.
+the executable name `gox` without an explicit output override. Run it with
+`--project` to verify runtime plugins using the installer’s module cache.
+Official binary smoke tests keep a separate module cache to verify portability;
+release builds retain `-trimpath` for that purpose.
 For versioned builds, set the version through:
 
 ```sh

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Exercise config and page plugins using the actual release executable."""
 from pathlib import Path
+import argparse
 import os
 import socket
 import subprocess
@@ -9,11 +10,18 @@ import tempfile
 import time
 import urllib.request
 
-binary = str(Path(sys.argv[1]).resolve())
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('binary')
+parser.add_argument('--installed-with-go', action='store_true', help='Use the same module cache as a local go install')
+args = parser.parse_args()
+binary = str(Path(args.binary).resolve())
 with tempfile.TemporaryDirectory(prefix='gox-release-') as directory:
     root = Path(directory)
-    # A user does not share the release builder's module cache or source paths.
-    env = dict(os.environ, GOMODCACHE=str(root / 'modules'), GOCACHE=str(root / 'build-cache'))
+    # Downloaded releases must work independently of the builder’s module cache.
+    # A local go install uses the user’s module cache for both host and plugins.
+    env = dict(os.environ, GOCACHE=str(root / 'build-cache'))
+    if not args.installed_with_go:
+        env['GOMODCACHE'] = str(root / 'modules')
     subprocess.run([binary, 'createproject', 'smoke'], cwd=root, env=env, check=True, timeout=600)
     project = root / 'smoke'
     (project / 'pages/index.gox').write_text('''module index

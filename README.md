@@ -13,18 +13,12 @@ components using React, Preact, Solid, Vue, or Svelte.
 
 ## Install with Go
 
-The `cmd/gox` entry point is available on `main` and will be included in the
-next tagged release. Until then, use `@main` instead of `@latest`.
-
 With Go 1.26 or later:
 
 ```sh
-go install -trimpath github.com/gox-lang/server/cmd/gox@latest
+go install github.com/gox-lang/server/cmd/gox@latest
 gox version
 ```
-
-`-trimpath` keeps the executable compatible with runtime plugins built from
-a different module-cache location, as in the official releases.
 
 Go installs the `gox` executable in `GOBIN`, or in `$(go env GOPATH)/bin`
 when `GOBIN` is unset. Ensure that directory is on your `PATH`. For the
