@@ -48,7 +48,11 @@ func Ensure(info Info) (Paths, error) {
 	}
 
 	logs.Info("extracting Go toolchain to: %s", paths.VersionDir)
-	if err := ExtractTarGz(paths.ArchivePath, paths.VersionDir); err != nil {
+	extract := ExtractTarGz
+	if platform.Ext == "zip" {
+		extract = ExtractZip
+	}
+	if err := extract(paths.ArchivePath, paths.VersionDir); err != nil {
 		return Paths{}, err
 	}
 

@@ -27,14 +27,18 @@ func ResolvePaths(info Info, platform Platform) (Paths, error) {
 	goRoot := filepath.Join(versionDir, "go")
 	goBin := filepath.Join(goRoot, "bin")
 
+	suffix := ""
+	if platform.OS == "windows" {
+		suffix = ".exe"
+	}
 	return Paths{
 		HomeDir:      goxHome,
 		ToolchainDir: toolchainDir,
 		VersionDir:   versionDir,
 		GoRoot:       goRoot,
 		GoBin:        goBin,
-		GoExec:       filepath.Join(goBin, "go"),
-		GofmtExec:    filepath.Join(goBin, "gofmt"),
+		GoExec:       filepath.Join(goBin, "go"+suffix),
+		GofmtExec:    filepath.Join(goBin, "gofmt"+suffix),
 		ArchivePath:  filepath.Join(versionDir, ArchiveName(info.ExactVersion, platform)),
 	}, nil
 }

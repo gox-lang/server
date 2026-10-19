@@ -60,3 +60,7 @@ coverage.html
 /gox.exe
 /server
 /server.exe
+
+# Release workflow staging
+/.release-home/
+/.release-adapter/

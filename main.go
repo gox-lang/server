@@ -17,6 +17,7 @@ import (
 	runcommand "github.com/gox-lang/server/internal/commands/run"
 	testcommand "github.com/gox-lang/server/internal/commands/test"
 	tidycommand "github.com/gox-lang/server/internal/commands/tidy"
+	updatecommand "github.com/gox-lang/server/internal/commands/update"
 	versioncommand "github.com/gox-lang/server/internal/commands/version"
 	"github.com/gox-lang/server/internal/logs"
 	"github.com/gox-lang/server/internal/processrestart"
@@ -51,6 +52,7 @@ func main() {
 		runcommand.New(),
 		testcommand.New(),
 		versioncommand.New(),
+		updatecommand.New(),
 	)
 
 	ctx := cli.Context{

@@ -1,8 +1,10 @@
 package run
 
 import (
+	"context"
 	"flag"
 	"fmt"
+	"github.com/gox-lang/server/internal/selfupdate"
 	"io"
 	"net"
 	"strings"
@@ -102,6 +104,13 @@ func (c *Command) Run(ctx cli.Context, args []string) error {
 		return err
 	}
 
+	updateCtx, stopUpdates := context.WithCancel(context.Background())
+	defer stopUpdates()
+	if manager, err := selfupdate.New(buildinfo.Version()); err == nil {
+		go manager.Watch(updateCtx, func(release selfupdate.Release) {
+			logs.Info("GOX %s is available. Run gox update to install it.", release.Version)
+		})
+	}
 	return runtime.ListenAndServe()
 }
 

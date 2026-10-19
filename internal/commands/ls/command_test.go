@@ -3,6 +3,9 @@ package ls
 import (
 	"bytes"
 	"fmt"
+	"github.com/gox-lang/server/internal/toolchain"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -16,7 +19,11 @@ func TestCommandRunsLanguageServerOnConfiguredStreams(t *testing.T) {
 	input := frame(initialize) + frame(shutdown) + frame(exit)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	err := New().Run(cli.Context{Stdin: strings.NewReader(input), Stdout: &stdout, Stderr: &stderr}, nil)
+	command := New()
+	command.ensureToolchain = func(toolchain.Info) (toolchain.Paths, error) {
+		return toolchain.Paths{GoRoot: runtime.GOROOT(), GoBin: filepath.Join(runtime.GOROOT(), "bin")}, nil
+	}
+	err := command.Run(cli.Context{Stdin: strings.NewReader(input), Stdout: &stdout, Stderr: &stderr}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -25,7 +32,7 @@ func TestCommandRunsLanguageServerOnConfiguredStreams(t *testing.T) {
 		!strings.Contains(stdout.String(), `"textDocumentSync":{"change":1,"openClose":true}`) {
 		t.Fatalf("stdout is not an LSP stream: %q", stdout.String())
 	}
-	if stderr.Len() != 0 {
+	if !strings.Contains(stderr.String(), "Preparing GOX") {
 		t.Fatalf("stderr = %q", stderr.String())
 	}
 }

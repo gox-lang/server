@@ -56,6 +56,9 @@ type PNPMPaths struct {
 }
 
 func ResolveNodePaths(info NodeInfo, platform Platform) (NodePaths, error) {
+	if platform.OS == "windows" {
+		return NodePaths{}, fmt.Errorf("managed frontend toolchains on Windows require WSL")
+	}
 	home, err := ResolveGoxHome()
 	if err != nil {
 		return NodePaths{}, err

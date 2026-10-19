@@ -13,7 +13,9 @@ components using React, Preact, Solid, Vue, or Svelte.
 
 ## Build the CLI
 
-GOX is available for Linux and macOS. Windows is not supported.
+GOX runs on Linux, macOS, and Windows. On Windows, `gox ls` provides native
+editor support; use WSL for application development and execution because
+Go plugins are not supported on native Windows.
 
 Install Go matching the version required by [go.mod](go.mod), or a newer
 compatible version. Run the commands below from a checkout of this repository.
@@ -48,6 +50,43 @@ gox --help
 GOX provisions its managed Go, Node.js, and pnpm toolchains when needed;
 initial setup requires internet access. To update a locally built installation,
 rebuild from the updated checkout and repeat the install command above.
+
+## Visual Studio Code
+
+**GOX Tools** is the official VS Code extension for GOX. It provides syntax
+highlighting, snippets, visibility hints, GOX Dark and GOX Light themes, and
+language features powered by the `gox ls` language server: completion,
+diagnostics, and navigation.
+
+Install [GOX Tools from Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=gox-lang.gox-tools),
+or run this command with the VS Code CLI:
+
+```sh
+code --install-extension gox-lang.gox-tools
+```
+
+Install the GOX CLI first and make `gox` available in `PATH`. Open a trusted GOX
+workspace and a `.gox` file to start the language server automatically. For a
+custom CLI location, set `gox.languageServer.path` to its absolute executable
+path in VS Code settings. Use **GOX: Restart Language Server** after updating
+the CLI. VS Code 1.91 or newer is required. The language server prepares its managed Go
+toolchain automatically. Use WSL on Windows to run GOX applications.
+
+## Updates
+
+Run `gox update` to check the official stable release immediately, verify its
+SHA-256 checksum, and install the new executable. Existing applications keep
+running their current version; project dependencies are not changed.
+
+`gox run` checks in the background at most once every 24 hours and recommends
+`gox update` when a newer version is available. It never installs an update.
+The check is cached between processes, and network failures do not stop GOX.
+
+`gox ls` can install updates for installations managed by GOX Tools when the
+extension enables update coordination. It notifies the extension to restart the
+language server after validating and installing the executable. External
+installations receive an update notice instead. Development builds do not
+participate in automatic stable-release updates.
 
 ## Start a project
 

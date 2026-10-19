@@ -1,0 +1,140 @@
+name: Release binaries
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Existing version tag to package
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ inputs.version || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    services:
+      redis:
+        image: redis:7
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.version || github.ref_name }}
+      - uses: actions/checkout@v4
+        with:
+          repository: gox-lang/redisadapter
+          path: .release-adapter
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Prepare integration dependencies
+        run: |
+          npm install --global typescript@5.9.3
+          docker exec "${{ job.services.redis.id }}" redis-cli CONFIG SET notify-keyspace-events Ex
+      - name: Test published SDK and server compatibility
+        run: |
+          export GOX_REDIS_ADAPTER_DIR="$GITHUB_WORKSPACE/.release-adapter"
+          go test github.com/gox-lang/gox/...
+          go test ./...
+          go vet ./...
+          node --test internal/websocket/*.test.js internal/clientbuilder/*.test.mjs
+      - name: Test RedisAdapter
+        working-directory: .release-adapter
+        env:
+          GOX_REDIS_TEST_ADDR: localhost:6379
+        run: go test -race ./...
+
+  package:
+    needs: verify
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-22.04
+            target: linux_amd64
+          - runner: ubuntu-22.04-arm
+            target: linux_arm64
+          - runner: macos-15-intel
+            target: darwin_amd64
+          - runner: macos-14
+            target: darwin_arm64
+          - runner: windows-2022
+            target: windows_amd64
+          - runner: windows-11-arm
+            target: windows_arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    env:
+      RELEASE_VERSION: ${{ inputs.version || github.ref_name }}
+      GOX_HOME: ${{ github.workspace }}/.release-home
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_VERSION }}
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Check CLI and toolchain
+        run: go test ./internal/toolchain ./internal/commands/ls ./internal/processrestart
+      - name: Build native package
+        shell: bash
+        run: python scripts/package-release.py "$RELEASE_VERSION"
+      - name: Test packaged binary
+        shell: bash
+        run: |
+          executable="dist/gox_${RELEASE_VERSION#v}_${{ matrix.target }}/gox"
+          if [[ '${{ runner.os }}' == 'Windows' ]]; then executable="$executable.exe"; fi
+          python scripts/smoke-lsp.py "$executable"
+          if [[ '${{ runner.os }}' != 'Windows' ]]; then python scripts/smoke-project.py "$executable"; fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.target }}
+          path: |
+            dist/*.tar.gz
+            dist/*.zip
+            dist/*.sha256
+          if-no-files-found: error
+
+  draft:
+    needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RELEASE_VERSION: ${{ inputs.version || github.ref_name }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Verify and combine checksums
+        run: |
+          cd dist
+          cat *.sha256 | sort -k2 > checksums.sha256
+          test "$(wc -l < checksums.sha256)" -eq 6
+          sha256sum --check checksums.sha256
+          find . -name '*.sha256' ! -name checksums.sha256 -delete
+      - name: Create draft release
+        run: gh release create "$RELEASE_VERSION" dist/* --verify-tag --draft --title "GOX $RELEASE_VERSION" --generate-notes

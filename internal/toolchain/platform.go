@@ -12,22 +12,26 @@ type Platform struct {
 }
 
 func CurrentPlatform() (Platform, error) {
-	if runtime.GOOS == "windows" {
-		return Platform{}, fmt.Errorf("gox does not support Windows because Go plugins are not supported there")
+	return platformFor(runtime.GOOS, runtime.GOARCH)
+}
+
+func platformFor(goos, goarch string) (Platform, error) {
+	if goos != "linux" && goos != "darwin" && goos != "windows" {
+		return Platform{}, fmt.Errorf("unsupported OS %q", goos)
 	}
 
-	if runtime.GOOS != "linux" && runtime.GOOS != "darwin" {
-		return Platform{}, fmt.Errorf("unsupported OS %q", runtime.GOOS)
+	if goarch != "amd64" && goarch != "arm64" {
+		return Platform{}, fmt.Errorf("unsupported architecture %q", goarch)
 	}
 
-	if runtime.GOARCH != "amd64" && runtime.GOARCH != "arm64" {
-		return Platform{}, fmt.Errorf("unsupported architecture %q", runtime.GOARCH)
+	ext := "tar.gz"
+	if goos == "windows" {
+		ext = "zip"
 	}
-
 	return Platform{
-		OS:   runtime.GOOS,
-		Arch: runtime.GOARCH,
-		Ext:  "tar.gz",
+		OS:   goos,
+		Arch: goarch,
+		Ext:  ext,
 	}, nil
 }
 

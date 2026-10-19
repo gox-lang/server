@@ -3,15 +3,19 @@ package ls
 import (
 	"errors"
 	"fmt"
+	"github.com/gox-lang/server/internal/buildinfo"
+	"github.com/gox-lang/server/internal/toolchain"
 
 	"github.com/gox-lang/server/internal/cli"
 	"github.com/gox-lang/server/internal/logs"
 	"github.com/gox-lang/server/internal/lsp"
 )
 
-type Command struct{}
+type Command struct {
+	ensureToolchain func(toolchain.Info) (toolchain.Paths, error)
+}
 
-func New() *Command { return &Command{} }
+func New() *Command { return &Command{ensureToolchain: toolchain.Ensure} }
 
 func (c *Command) Name() string { return "ls" }
 
@@ -40,7 +44,26 @@ func (c *Command) Run(ctx cli.Context, args []string) error {
 	logs.SetEnabled(false)
 	defer logs.SetEnabled(logsWasEnabled)
 
-	err := lsp.NewServer().Serve(ctx.Stdin, ctx.Stdout)
+	if ctx.Stderr != nil {
+		fmt.Fprintln(ctx.Stderr, "Preparing GOX language server Go toolchain...")
+	}
+	ensure := c.ensureToolchain
+	if ensure == nil {
+		ensure = toolchain.Ensure
+	}
+	paths, err := ensure(toolchain.New(buildinfo.GoVersion))
+	if err != nil {
+		return fmt.Errorf("prepare language server Go toolchain: %w", err)
+	}
+	restore, err := useToolchain(paths)
+	if err != nil {
+		return err
+	}
+	defer restore()
+
+	server := lsp.NewServer()
+	server.Background = watchUpdates
+	err = server.Serve(ctx.Stdin, ctx.Stdout)
 	if errors.Is(err, lsp.ErrExitWithoutShutdown) {
 		return cli.SilentExit(1)
 	}

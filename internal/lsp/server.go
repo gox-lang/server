@@ -2,11 +2,13 @@ package lsp
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gox-lang/server/internal/buildinfo"
@@ -16,6 +18,9 @@ import (
 var ErrExitWithoutShutdown = errors.New("LSP client exited without shutdown")
 
 type Server struct {
+	// Background starts after the client initializes and stops with the transport.
+	Background func(context.Context, func(string, any) error)
+
 	documents           *DocumentStore
 	symbols             *WorkspaceIndex
 	goPackages          *GoPackageIndex
@@ -48,6 +53,10 @@ func (s *Server) SymbolDefinitions(name string) []IndexedSymbol {
 
 func (s *Server) Serve(reader io.Reader, writer io.Writer) error {
 	conn := newConnection(reader, writer)
+	backgroundCtx, cancelBackground := context.WithCancel(context.Background())
+	var background sync.WaitGroup
+	defer func() { cancelBackground(); background.Wait() }()
+	startedBackground := false
 	type incomingMessage struct {
 		request  message
 		readErr  error
@@ -194,6 +203,20 @@ func (s *Server) Serve(reader io.Reader, writer io.Writer) error {
 			}
 		}
 		if len(request.ID) == 0 {
+			if request.Method == "initialized" && !startedBackground && s.Background != nil {
+				startedBackground = true
+				background.Add(1)
+				go func() {
+					defer background.Done()
+					s.Background(backgroundCtx, func(method string, params any) error {
+						data, err := json.Marshal(params)
+						if err != nil {
+							return err
+						}
+						return conn.write(message{JSONRPC: "2.0", Method: method, Params: data})
+					})
+				}()
+			}
 			if err := s.handleNotification(conn, request); err != nil {
 				return err
 			}
