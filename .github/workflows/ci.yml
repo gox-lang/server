@@ -25,6 +25,8 @@ jobs:
         run: npm install --global typescript@5.9.3
       - name: Test Go packages
         run: go test ./...
+      - name: Test Go installation
+        run: python3 scripts/smoke-install.py --project
       - name: Test browser runtime
         run: node --test internal/websocket/*.test.js internal/clientbuilder/*.test.mjs
       - name: Vet

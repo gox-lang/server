@@ -33,13 +33,15 @@ next, then GOX Server. Choose release tags explicitly; do not move existing tags
 RedisAdapter remains an optional dependency installed with `gox get`. The server
 must not install it or force-upgrade it automatically.
 
-The server source can be built with `go build -o ./build/gox .`. Publish CLI
-binaries under the executable name `gox`; the module's final path segment is
-`server`, so a plain `go install` of the module does not give the desired CLI name.
+The server source can be built with `go build -trimpath -o ./build/gox ./cmd/gox`. Publish CLI
+binaries from `./cmd/gox`. Users install the same command with
+`go install -trimpath github.com/gox-lang/server/cmd/gox@latest`.
+Before release, run `python3 scripts/smoke-install.py` to verify Go produces
+the executable name `gox` without an explicit output override.
 For versioned builds, set the version through:
 
 ```sh
-go build -ldflags "-X github.com/gox-lang/server/internal/buildinfo.GoxVersion=$VERSION" -o ./build/gox .
+go build -trimpath -ldflags "-X github.com/gox-lang/server/internal/buildinfo.GoxVersion=$VERSION" -o ./build/gox ./cmd/gox
 ```
 
 Set `VERSION` to the release tag before running this command.

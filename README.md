@@ -11,6 +11,32 @@ components using React, Preact, Solid, Vue, or Svelte.
 - [RedisAdapter](https://github.com/gox-lang/redisadapter) — optional shared sessions
   and communication between server instances.
 
+## Install with Go
+
+The `cmd/gox` entry point is available on `main` and will be included in the
+next tagged release. Until then, use `@main` instead of `@latest`.
+
+With Go 1.26 or later:
+
+```sh
+go install -trimpath github.com/gox-lang/server/cmd/gox@latest
+gox version
+```
+
+`-trimpath` keeps the executable compatible with runtime plugins built from
+a different module-cache location, as in the official releases.
+
+Go installs the `gox` executable in `GOBIN`, or in `$(go env GOPATH)/bin`
+when `GOBIN` is unset. Ensure that directory is on your `PATH`. For the
+standard Go configuration, add this line to your shell profile:
+
+```sh
+export PATH="$(go env GOPATH)/bin:$PATH"
+```
+
+Use Linux, macOS, or WSL to run applications that require Go plugins.
+Native Windows supports the CLI and language server, but not Go plugins.
+
 ## Build the CLI
 
 GOX runs on Linux, macOS, and Windows. On Windows, `gox ls` provides native
@@ -26,7 +52,7 @@ Build and install the executable in `/usr/local/bin`, so it is available from
 any project directory:
 
 ```sh
-go build -o ./build/gox .
+go build -trimpath -o ./build/gox ./cmd/gox
 sudo install -m 755 ./build/gox /usr/local/bin/gox
 ```
 
