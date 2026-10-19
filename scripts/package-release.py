@@ -32,8 +32,8 @@ def main():
     staging.mkdir(exist_ok=True)
     binary = staging / ('gox.exe' if system == 'windows' else 'gox')
     env = dict(os.environ, CGO_ENABLED='0' if system == 'windows' else '1', GOTOOLCHAIN='local')
-    # Do not use -trimpath: runtime plugins must use compatible package build flags.
-    subprocess.run(['go', 'build', '-ldflags', f'-s -w -X github.com/gox-lang/server/internal/buildinfo.GoxVersion={args.version}', '-o', str(binary), '.'], cwd=root, env=env, check=True)
+    # Release binaries and runtime plugins must both remove machine-specific source paths.
+    subprocess.run(['go', 'build', '-trimpath', '-ldflags', f'-s -w -X github.com/gox-lang/server/internal/buildinfo.GoxVersion={args.version}', '-o', str(binary), '.'], cwd=root, env=env, check=True)
     subprocess.run([str(binary), 'version'], check=True)
     license_file = root / 'LICENSE'
     archive = destination / (name + ('.zip' if system == 'windows' else '.tar.gz'))

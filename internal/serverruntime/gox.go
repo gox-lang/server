@@ -24,6 +24,7 @@ import (
 	"github.com/gox-lang/server/internal/goxsource"
 	"github.com/gox-lang/server/internal/hotreload"
 	"github.com/gox-lang/server/internal/logs"
+	"github.com/gox-lang/server/internal/toolchain"
 	"github.com/gox-lang/server/internal/watcher"
 
 	"github.com/gox-lang/gox"
@@ -499,13 +500,13 @@ func (r *Runtime) compileGoxRouteLocked(route *GoxRouteRuntime) error {
 const goxPluginLinkerFlags = "-s -w"
 
 func goxPluginBuildArgs(pluginPath, generatedPath string) []string {
-	return []string{
+	return toolchain.PluginBuildArgs([]string{
 		"build",
 		"-buildmode=plugin",
 		"-ldflags=" + goxPluginLinkerFlags,
 		"-o", pluginPath,
 		generatedPath,
-	}
+	})
 }
 
 func (r *Runtime) buildGoxRoutePluginLocked(route *GoxRouteRuntime) error {

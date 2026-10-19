@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Exercise config and page plugins using the actual release executable."""
 from pathlib import Path
+import os
 import socket
 import subprocess
 import sys
@@ -11,7 +12,9 @@ import urllib.request
 binary = str(Path(sys.argv[1]).resolve())
 with tempfile.TemporaryDirectory(prefix='gox-release-') as directory:
     root = Path(directory)
-    subprocess.run([binary, 'createproject', 'smoke'], cwd=root, check=True, timeout=600)
+    # A user does not share the release builder's module cache or source paths.
+    env = dict(os.environ, GOMODCACHE=str(root / 'modules'), GOCACHE=str(root / 'build-cache'))
+    subprocess.run([binary, 'createproject', 'smoke'], cwd=root, env=env, check=True, timeout=600)
     project = root / 'smoke'
     (project / 'pages/index.gox').write_text('''module index
 import gox "github.com/gox-lang/gox"
@@ -23,7 +26,7 @@ func GET(ctx *gox.Context) gox.Page {
         sock.bind(('127.0.0.1', 0))
         port = sock.getsockname()[1]
     with tempfile.TemporaryFile(mode='w+b') as log:
-        process = subprocess.Popen([binary, 'run', '--host', '127.0.0.1', '--port', str(port)], cwd=project, stdout=log, stderr=log)
+        process = subprocess.Popen([binary, 'run', '--host', '127.0.0.1', '--port', str(port)], cwd=project, env=env, stdout=log, stderr=log)
         try:
             deadline = time.monotonic() + 300
             while time.monotonic() < deadline:
