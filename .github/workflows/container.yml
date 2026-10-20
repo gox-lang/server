@@ -1,0 +1,36 @@
+name: Container validation
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [Dockerfile, .dockerignore, 'docker/**', scripts/smoke-container.py, .github/workflows/container.yml]
+  pull_request:
+    paths: [Dockerfile, .dockerignore, 'docker/**', scripts/smoke-container.py, .github/workflows/container.yml]
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            arch: amd64
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build native image from GitHub Releases
+        run: docker buildx build --load --platform linux/${{ matrix.arch }} -t gox-container-test .
+      - name: Test CLI, project creation and plugin execution
+        run: python3 scripts/smoke-container.py gox-container-test
+      - name: Validate Compose configuration
+        env:
+          GOX_IMAGE: gox-container-test
+        run: docker compose -f docker/compose.yaml config --quiet

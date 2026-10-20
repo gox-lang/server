@@ -1,0 +1,6 @@
+# Release-based image: application source and local artifacts are never build inputs.
+**
+!Dockerfile
+!docker/
+!docker/download-release.sh
+!docker/entrypoint.sh
