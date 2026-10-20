@@ -21,11 +21,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && usermod --login gox --home /home/gox --move-home ubuntu \
     && groupmod --new-name gox ubuntu \
     && mkdir -p /workspace /var/lib/gox \
-    && chown gox:gox /workspace /var/lib/gox
+    && chown gox:gox /workspace \
+    && chmod 1777 /var/lib/gox
 COPY --from=download /out/gox /usr/local/bin/gox
 COPY --from=download /out/LICENSE /usr/share/doc/gox/LICENSE
 COPY docker/entrypoint.sh /usr/local/bin/gox-container
-ENV GOX_HOME=/var/lib/gox HOME=/home/gox GOX_LSP_AUTO_UPDATE=0
+ENV GOX_LSP_AUTO_UPDATE=0
 USER gox
 WORKDIR /workspace
 EXPOSE 3000
