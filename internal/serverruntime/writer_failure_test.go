@@ -1,10 +1,15 @@
 package serverruntime
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"io"
+	"net"
 	"net/http/httptest"
+	"os"
 	"strings"
+	"syscall"
 	"testing"
 
 	"github.com/gox-lang/gox"
@@ -83,6 +88,66 @@ func TestWriterCloseFailureRecordedAndBufferReleased(t *testing.T) {
 			}
 			if output.calls != 1 {
 				t.Fatal("recovery retried failed transport")
+			}
+		})
+	}
+}
+
+// Test both returned errors and panics from a writer: neither should turn a
+// normal peer disconnect into an application error or prevent buffer cleanup.
+func TestWriterCloseDisconnectReleasesBufferWithoutHTTPError(t *testing.T) {
+	failures := map[string]error{
+		"broken-pipe": &net.OpError{Op: "write", Net: "tcp", Err: &os.SyscallError{Syscall: "write", Err: syscall.EPIPE}},
+		"reset":       fmt.Errorf("write response: %w", syscall.ECONNRESET),
+		"closed":      fmt.Errorf("write response: %w", net.ErrClosed),
+		"canceled":    fmt.Errorf("write response: %w", context.Canceled),
+	}
+	for name, failure := range failures {
+		for _, panicWrite := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/panic=%t", name, panicWrite), func(t *testing.T) {
+				output := &failingHTTPWriter{ResponseRecorder: httptest.NewRecorder(), failure: failure, panicWrite: panicWrite}
+				response, state := newRuntimeResponse(output, nil)
+				defer unregisterRuntimeResponse(response)
+				req := httptest.NewRequest("GET", "/", nil)
+				writer := newGoxWriter(state, req, noCompressionConfig(), false, false)
+				if err := writer.WriteByte('x'); err != nil {
+					t.Fatal(err)
+				}
+				ctx := &gox.Context{Response: response, Writer: writer}
+				runtime := &Runtime{}
+				runtime.closeRequestWriter(ctx, req, writer)
+				if ctx.Error != nil {
+					t.Fatalf("disconnect became an HTTP error: %v", ctx.Error)
+				}
+				if writer.bufferPtr != nil || !writer.closed {
+					t.Fatal("buffer was not released")
+				}
+				if output.calls != 1 {
+					t.Fatalf("disconnected transport retried: %d writes", output.calls)
+				}
+			})
+		}
+	}
+}
+
+func TestWriterCloseFailureStillReportedForCanceledRequest(t *testing.T) {
+	for _, failure := range []error{errors.New("write: broken pipe"), context.DeadlineExceeded, errors.New("compression failed")} {
+		t.Run(failure.Error(), func(t *testing.T) {
+			output := &failingHTTPWriter{ResponseRecorder: httptest.NewRecorder(), failure: failure}
+			response, state := newRuntimeResponse(output, nil)
+			defer unregisterRuntimeResponse(response)
+			canceled, cancel := context.WithCancel(context.Background())
+			cancel()
+			req := httptest.NewRequest("GET", "/", nil).WithContext(canceled)
+			writer := newGoxWriter(state, req, noCompressionConfig(), false, false)
+			if err := writer.WriteByte('x'); err != nil {
+				t.Fatal(err)
+			}
+			ctx := &gox.Context{Response: response, Writer: writer}
+			runtime := &Runtime{}
+			runtime.closeRequestWriter(ctx, req, writer)
+			if ctx.Error == nil {
+				t.Fatal("unrelated failure was hidden by request cancellation")
 			}
 		})
 	}

@@ -1,10 +1,14 @@
 package serverruntime
 
 import (
+	"context"
+	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"runtime"
 	"strings"
+	"syscall"
 
 	"github.com/gox-lang/gox"
 )
@@ -13,12 +17,25 @@ import (
 func (r *Runtime) closeRequestWriter(ctx *gox.Context, req *http.Request, closer interface{ Close() error }) {
 	defer func() {
 		if recovered := recover(); recovered != nil {
+			if err, ok := recovered.(error); ok && isResponseDisconnect(err) {
+				return
+			}
 			r.recoverRequest(ctx, req, recovered)
 		}
 	}()
-	if err := closer.Close(); err != nil && ctx.Error == nil {
+	if err := closer.Close(); err != nil && ctx.Error == nil && !isResponseDisconnect(err) {
 		panic(err)
 	}
+}
+
+// A disconnected peer cannot receive an error page. Match error identities,
+// including wrapped socket errors, rather than hiding arbitrary writer failures
+// just because the request was canceled or its message mentions a disconnect.
+func isResponseDisconnect(err error) bool {
+	return errors.Is(err, syscall.EPIPE) ||
+		errors.Is(err, syscall.ECONNRESET) ||
+		errors.Is(err, net.ErrClosed) ||
+		errors.Is(err, context.Canceled)
 }
 
 func (r *Runtime) recoverRequest(ctx *gox.Context, req *http.Request, recovered any) {
