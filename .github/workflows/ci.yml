@@ -28,6 +28,6 @@ jobs:
       - name: Test Go installation
         run: python3 scripts/smoke-install.py --project
       - name: Test browser runtime
-        run: node --test internal/websocket/*.test.js internal/clientbuilder/*.test.mjs
+        run: node --test internal/websocket/*.test.js internal/clientbuilder/*.test.mjs .github/actions/release-info/*.test.cjs scripts/distribute-release.test.cjs
       - name: Vet
         run: go vet ./...

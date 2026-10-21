@@ -1,0 +1,30 @@
+name: Official GOX release
+description: Resolve and validate an immutable GOX release and its archive checksums.
+inputs:
+  version:
+    description: Stable version, with or without v; empty selects latest.
+    required: false
+    default: ''
+  require-latest:
+    description: Reject releases other than the current latest stable release.
+    default: 'true'
+outputs:
+  version:
+    description: Version without v
+    value: ${{ steps.release.outputs.version }}
+  tag:
+    description: Version tag
+    value: ${{ steps.release.outputs.tag }}
+  checksums:
+    description: Absolute path to verified checksum manifest
+    value: ${{ steps.release.outputs.checksums }}
+runs:
+  using: composite
+  steps:
+    - id: release
+      shell: bash
+      env:
+        REQUESTED_VERSION: ${{ inputs.version }}
+        REQUIRE_LATEST: ${{ inputs.require-latest }}
+        GH_TOKEN: ${{ github.token }}
+      run: node "$GITHUB_ACTION_PATH/index.cjs"

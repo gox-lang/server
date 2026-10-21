@@ -1,0 +1,68 @@
+name: Distribute stable release
+run-name: Distribute GOX ${{ inputs.version || github.event.release.tag_name }}
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Published stable version (empty selects latest)
+        type: string
+        default: ''
+      channel:
+        description: Retry one channel, or distribute to all
+        type: choice
+        options: [all, npm, homebrew, linux, docker]
+        default: all
+permissions:
+  contents: read
+concurrency:
+  group: distribution
+  cancel-in-progress: false
+jobs:
+  resolve:
+    if: github.event_name == 'workflow_dispatch' || (!github.event.release.prerelease && !github.event.release.draft)
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      channels: ${{ steps.channels.outputs.value }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - id: release
+        uses: ./.github/actions/release-info
+        with:
+          version: ${{ inputs.version || github.event.release.tag_name }}
+      - id: channels
+        env:
+          CHANNEL: ${{ inputs.channel || 'all' }}
+        run: |
+          node -e 'const c=process.env.CHANNEL; const all=["npm","homebrew","linux","docker"]; if(c!=="all"&&!all.includes(c))process.exit(1); require("fs").appendFileSync(process.env.GITHUB_OUTPUT,"value="+JSON.stringify(c==="all"?all:[c])+"\n")'
+  distribute:
+    needs: resolve
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    permissions:
+      actions: write
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        channel: ${{ fromJSON(needs.resolve.outputs.channels) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Dispatch and wait for channel publication
+        env:
+          GH_TOKEN: ${{ matrix.channel == 'docker' && github.token || secrets.RELEASE_CHANNELS_TOKEN }}
+          CHANNEL: ${{ matrix.channel }}
+          VERSION: ${{ needs.resolve.outputs.version }}
+        run: node scripts/distribute-release.cjs
