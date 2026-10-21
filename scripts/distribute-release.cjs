@@ -24,7 +24,7 @@ async function main({ request = fetch, pause = ms => new Promise(resolve => setT
     return response.status === 204 ? null : response.json();
   }
   const inputs = { version, request_id: requestID };
-  if (channel === 'docker') inputs.latest = true;
+  if (channel === 'docker') inputs.latest = 'true';
   const since = new Date(Date.now() - 60000).toISOString();
   await api('/actions/workflows/' + workflow + '/dispatches', { ref: 'main', inputs });
   const deadline = Date.now() + 225 * 60 * 1000;
