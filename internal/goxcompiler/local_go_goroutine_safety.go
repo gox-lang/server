@@ -49,6 +49,13 @@ var projectGoSafetyCache = struct {
 	clock uint64
 }{roots: make(map[string]*projectGoSafetyRootState)}
 
+// ValidateProjectGoGoroutineSafety checks project Go sources without building or
+// loading a plugin. Hot reload uses the same gate before stopping a healthy
+// runtime, so a rejected edit cannot turn a restart into a startup failure.
+func ValidateProjectGoGoroutineSafety(root string) error {
+	return validateProjectGoGoroutineSafety(root)
+}
+
 func validateProjectGoGoroutineSafety(root string) error {
 	root = normalizeProjectGoSafetyRoot(root)
 	if root == "" {

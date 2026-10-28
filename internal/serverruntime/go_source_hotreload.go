@@ -21,6 +21,13 @@ func (r *Runtime) handleGoSourceHotReloadEvent(event watcher.Event) {
 		return
 	}
 
+	// Keep the currently loaded plugins serving when the candidate sources are
+	// unsafe. Compilation repeats this check before producing any new plugin.
+	if err := goxcompiler.ValidateProjectGoGoroutineSafety(r.projectRoot()); err != nil {
+		logs.Warm("Go source compilation rejected after %s; keeping active server: %v", event.Rel, err)
+		return
+	}
+
 	request := RestartRequest{
 		Reason:          RestartReasonGoSourceChanged,
 		ChangedPath:     dependents.FileAbsPath,

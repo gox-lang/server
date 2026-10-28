@@ -74,6 +74,30 @@ func TestGoSourceChangeCompletesOrderedRuntimeRestart(t *testing.T) {
 	address := server.Listener.Addr().String()
 	defer server.Close()
 
+	// A rejected edit must never reach shutdown: the old HTTP listener and
+	// sockets remain usable until a safe candidate is available.
+	if err := os.WriteFile(changed, []byte("package billing\nfunc Work(){go func(){panic(\"unsafe\")}()}\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case request := <-runtime.restartRequests():
+		t.Fatalf("unsafe edit requested restart: %#v", request)
+	case <-time.After(150 * time.Millisecond):
+	}
+	response, err := server.Client().Get(server.URL)
+	if err != nil {
+		t.Fatalf("active HTTP server stopped after rejected edit: %v", err)
+	}
+	response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("HTTP status = %d", response.StatusCode)
+	}
+	select {
+	case <-closed:
+		t.Fatal("rejected edit disconnected active sockets")
+	default:
+	}
+
 	if err := os.WriteFile(changed, []byte("package billing\n\nconst Version = 2\n"), 0644); err != nil {
 		t.Fatal(err)
 	}

@@ -1,6 +1,7 @@
 package serverruntime
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -96,5 +97,53 @@ func TestShouldIgnoreGoSourceHotReloadEvent(t *testing.T) {
 		if shouldIgnoreGoSourceHotReloadEvent(event) {
 			t.Fatalf("project Go source event was ignored: %#v", event)
 		}
+	}
+}
+
+func TestGoSourceHotReloadRejectsUnsafeEditAndRecoversAfterCorrection(t *testing.T) {
+	root := t.TempDir()
+	packageDir := filepath.Join(root, "billing")
+	changed := filepath.Join(packageDir, "worker.go")
+	if err := os.MkdirAll(packageDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	entry := filepath.Join(root, "app", "config.gox")
+	index := hotreload.NewIndex()
+	index.RegisterCompileResult(hotreload.ReloadConfig, &goxcompiler.CompileResult{
+		EntryPath: "app/config.gox", EntryAbsPath: entry,
+		GoPackages: []goxcompiler.CompileGoPackage{{ImportPath: "example/billing", Dir: packageDir, Files: []string{changed}}},
+	})
+	runtime := &Runtime{ProjectRoot: root, hotReload: index}
+	event := watcher.Event{Path: changed, Rel: "billing/worker.go", Op: watcher.OpWrite}
+	write := func(source string) {
+		t.Helper()
+		if err := os.WriteFile(changed, []byte(source), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, source := range []string{
+		"package billing\nfunc Run(){go func(){panic(\"unsafe\")}()}\n",
+		"package billing\nfunc Run( {\n",
+	} {
+		write(source)
+		runtime.handleGoSourceHotReloadEvent(event)
+		select {
+		case request := <-runtime.restartRequests():
+			t.Fatalf("invalid source shut down active server: %#v", request)
+		default:
+		}
+		if dependents, ok := index.Dependents(changed); !ok || len(dependents.Entries) != 1 {
+			t.Fatal("rejection lost dependency tracking")
+		}
+	}
+	write("package billing\nfunc Run(){go func(){defer func(){if r:=recover();r!=nil {}}();panic(\"protected\")}()}\n")
+	runtime.handleGoSourceHotReloadEvent(event)
+	select {
+	case request := <-runtime.restartRequests():
+		if request.Reason != RestartReasonGoSourceChanged {
+			t.Fatalf("unexpected restart: %#v", request)
+		}
+	default:
+		t.Fatal("corrected source did not resume normal reload")
 	}
 }
