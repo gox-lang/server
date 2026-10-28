@@ -631,10 +631,27 @@ async function call(action,args){
   if(built[1]) return [null,built[1]];
   let response;
   try{
-    response=await fetch(route,{method:"POST",headers:{"Invoke-Action":action},body:built[0]});
+    response=await fetch(route,{method:"POST",headers:{"Invoke-Action":action,"Gox-Action-Redirect":"1"},body:built[0],redirect:"manual"});
   }catch(e){
     return [null,err("NETWORK_ERROR","Network error while invoking action "+action+".",action,0,e)];
   }
+  const navigationStatus=response.headers.get("Action-Response")==="redirect"
+    ? Number(response.headers.get("Action-Redirect-Status")) : response.status;
+  if(response.headers.get("Action-Response")==="redirect"||[301,302,303,307,308].includes(response.status)){
+    const destination=response.headers.get("Location");
+    try{
+      if(![301,302,303,307,308].includes(navigationStatus)||!destination||!destination.trim()||/[\u0000-\u001f\u007f]/.test(destination)) throw new Error("Invalid redirect");
+      const url=new URL(destination,location.href);
+      if(!["http:","https:"].includes(url.protocol)||url.username||url.password) throw new Error("Invalid redirect");
+      location.assign(url.href);
+      // Navigation replaces this document. Do not run success/error callbacks
+      // from the old page while the destination is loading.
+      return await new Promise(()=>{});
+    }catch(e){
+      return [null,err("INVALID_REDIRECT","Invalid action redirect.",action,response.status)];
+    }
+  }
+  if(response.type==="opaqueredirect") return [null,err("INVALID_REDIRECT","The server did not negotiate an action redirect.",action,response.status)];
   if(response.status===405) return [null,err("METHOD_NOT_ALLOWED","Action "+action+" is not allowed on this route.",action,response.status)];
   if(response.status>=500) return [null,err("SERVER_ERROR","Server error while invoking action "+action+".",action,response.status)];
   const actionResponse=(response.headers.get("Action-Response")||"").toLowerCase();

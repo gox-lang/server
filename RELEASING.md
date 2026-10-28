@@ -116,3 +116,23 @@ go build -trimpath -ldflags "-X github.com/gox-lang/server/internal/buildinfo.Go
 Keep Issues, Actions and Private Vulnerability Reporting enabled on official
 repositories. Review diffs for credentials, local toolchains and generated output
 before committing; ignore rules do not remove files from existing history.
+
+## Action navigation protocol (server v0.1.6)
+
+The Actions client sends `Gox-Action-Redirect: 1` with `Invoke-Action` and uses
+`fetch` with `redirect: manual`. A `ctx.Response.Redirect` in that request is
+transported as HTTP 200 with `Action-Response: redirect`, the original
+`Action-Redirect-Status`, and `Location`. Cookies are preserved, the response has
+no body, and `Cache-Control: no-store` prevents caching. This envelope is required
+because browser fetch exposes an opaque redirect without readable Location for
+manual HTTP redirects. It also prevents 307/308 from replaying Action arguments.
+
+The client navigates the document to the HTTP(S) Location; it does not resolve the
+Action promise and run callbacks from the old page while navigation is pending.
+Navigation is a fresh browser request, not a repost of Action arguments.
+Invalid targets or opaque redirects return an Action error without navigation.
+GET/POST requests and older clients without the opt-in header retain ordinary
+HTTP redirect responses. No SDK API, session storage, or Redis wire change is
+required. Upgrade all HTTP-serving nodes before relying on this feature: a new
+client reaching an older node fails closed on an opaque redirect. Refresh pages
+to load the new Actions client after the rollout.

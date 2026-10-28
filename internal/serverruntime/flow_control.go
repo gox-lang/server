@@ -107,6 +107,17 @@ func renderRedirect(ctx *gox.Context, status int, location string) {
 		return
 	}
 	ctx.Response.Headers.Set("Location", location)
+	// Browsers hide Location on manual 30X fetch responses. Negotiate a readable
+	// navigation response instead of replaying an Action POST at the destination.
+	invoke, _ := ctx.Request.Headers.Get("Invoke-Action")
+	navigation, _ := ctx.Request.Headers.Get("Gox-Action-Redirect")
+	if invoke != "" && navigation == "1" && (status == 301 || status == 302 || status == 303 || status == 307 || status == 308) {
+		ctx.Response.Headers.Set("Action-Response", "redirect")
+		ctx.Response.Headers.Set("Action-Redirect-Status", fmt.Sprint(status))
+		ctx.Response.Headers.Set("Cache-Control", "no-store")
+		writeResponseHeader(ctx, http.StatusOK)
+		return
+	}
 	writeResponseHeader(ctx, status)
 }
 

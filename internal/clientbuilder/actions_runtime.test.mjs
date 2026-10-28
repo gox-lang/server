@@ -273,3 +273,61 @@ test("empty Action HTML returns an empty DocumentFragment", async () => {
   assert.ok(value instanceof DocumentFragment);
   assert.equal(value.childNodes.length, 0);
 });
+
+for (const status of [301, 302, 303, 307, 308]) {
+  test(`Action redirect ${status} navigates without fetching or replaying its body`, async () => {
+    const destinations = [];
+    globalThis.location.href = "https://app.example/downloads?tab=1";
+    globalThis.location.assign = (url) => destinations.push(url);
+    let calls = 0;
+    globalThis.fetch = async (route, options) => {
+      calls++;
+      assert.equal(options.redirect, "manual");
+      assert.equal(options.headers["Gox-Action-Redirect"], "1");
+      return new Response(null, { headers: {
+        "Action-Response": "redirect", "Action-Redirect-Status": String(status),
+        "Location": "/sign?from=logout#done",
+      }});
+    };
+    let settled = false;
+    Actions.download().then(() => { settled = true; });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepEqual(destinations, ["https://app.example/sign?from=logout#done"]);
+    assert.equal(calls, 1);
+    assert.equal(settled, false, "old page callbacks must not run during navigation");
+    globalThis.fetch = async () => responseFactory();
+  });
+}
+
+test("Action redirects accept HTTP(S) destinations and reject unsafe or malformed targets", async () => {
+  globalThis.location.href = "https://app.example/downloads";
+  const destinations = [];
+  globalThis.location.assign = (url) => destinations.push(url);
+  for (const target of ["https://other.example/welcome", "../sign", "#done"]) {
+    responseFactory = () => new Response(null, {status: 303, headers: {Location: target}});
+    Actions.download();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(destinations.at(-1), new URL(target, location.href).href);
+  }
+  const count = destinations.length;
+  for (const target of ["", "javascript:alert(1)", "data:text/html,test", "https://user:secret@example.com", "http://["]) {
+    responseFactory = () => new Response(null, {headers: {
+      "Action-Response": "redirect", "Action-Redirect-Status": "303", Location: target,
+    }});
+    const [value, error] = await Actions.download();
+    assert.equal(value, null);
+    assert.ok(error);
+  }
+  responseFactory = () => new Response(null, {headers: {
+    "Action-Response": "redirect", "Action-Redirect-Status": "304", Location: "/sign",
+  }});
+  assert.ok((await Actions.download())[1]);
+  assert.equal(destinations.length, count);
+});
+
+test("Opaque redirects fail safely instead of replaying Action arguments", async () => {
+  responseFactory = () => ({status: 0, type: "opaqueredirect", headers: new Headers()});
+  const [value, error] = await Actions.download();
+  assert.equal(value, null);
+  assert.ok(error);
+});
