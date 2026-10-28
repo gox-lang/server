@@ -136,3 +136,13 @@ HTTP redirect responses. No SDK API, session storage, or Redis wire change is
 required. Upgrade all HTTP-serving nodes before relying on this feature: a new
 client reaching an older node fails closed on an opaque redirect. Refresh pages
 to load the new Actions client after the rollout.
+
+## Shared head components (server v0.1.7)
+
+Pages prepare import-map CSP and request-local head metadata before template
+output. A head rendered by a shared or inline component asks the server writer
+to emit that metadata before its child scripts. The optional writer hooks are
+internal compiler/runtime integration; the published SDK Writer interface and
+Redis protocol are unchanged. Component fragments rendered by Actions do not
+receive page metadata. Restart the server with the new binary and reload the
+page to use this correction; no application import-map workaround is required.

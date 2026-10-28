@@ -49,6 +49,12 @@ func BundleModules(graph *ModuleGraph) (*Bundle, error) {
 		return nil, err
 	}
 
+	// Every Page can delegate its head to a component. Keep metadata declarations
+	// available even for callers that only bundle without building client assets.
+	if bundleHasHTTPHandlers(bundle) {
+		AddActionsClientScriptDecl(bundle, "", nil)
+	}
+
 	SpecializeRuntimeAnyCalls(bundle.Decls)
 
 	// Rebuild import declaration after adding generated runtime imports.

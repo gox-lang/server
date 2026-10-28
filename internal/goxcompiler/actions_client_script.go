@@ -22,6 +22,24 @@ func AddActionsClientScriptDecl(bundle *Bundle, actionsRuntimeURL string, extraI
 	if bundle == nil {
 		return
 	}
+	// Compile replaces the defaults with the resolved client assets.
+	kept := bundle.Decls[:0]
+	for _, decl := range bundle.Decls {
+		generated := false
+		if gen, ok := decl.(*ast.GenDecl); ok && gen.Tok == token.VAR && len(gen.Specs) == 1 {
+			if value, ok := gen.Specs[0].(*ast.ValueSpec); ok && len(value.Names) == 1 {
+				switch value.Names[0].Name {
+				case goxActionsClientScriptVar, goxStaticImportMapEntriesVar, goxStaticImportMapScriptVar, goxStaticImportMapHashVar:
+					generated = true
+				}
+			}
+		}
+		if !generated {
+			kept = append(kept, decl)
+		}
+	}
+	bundle.Decls = kept
+
 	actionsScript := buildActionsMetadataScript(bundleActionSignatures(bundle))
 	entries, script, hash := buildStaticImportMap(actionsRuntimeURL, extraImportMapEntries)
 	decls := []ast.Decl{

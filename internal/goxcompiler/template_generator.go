@@ -2,6 +2,7 @@ package gox
 
 import (
 	"go/ast"
+	"go/parser"
 	"go/token"
 	"strconv"
 	"strings"
@@ -41,6 +42,10 @@ func GenerateTemplateStmts(tpl *Template, ctx *TemplateGenContext) ([]ast.Stmt, 
 	g.ctx = ctx
 	if ctx.InjectActionsClient {
 		g.importMapCSPPos = templateImportMapHead(tpl.Root)
+		if g.importMapCSPPos == nil {
+			pos := templateNodePosition(tpl.Root)
+			g.importMapCSPPos = &pos
+		}
 	}
 
 	if err := g.generateNode(tpl.Root); err != nil {
@@ -55,7 +60,7 @@ func GenerateTemplateStmts(tpl *Template, ctx *TemplateGenContext) ([]ast.Stmt, 
 		// dynamic html/head attributes and content before the head element.
 		var prelude templateGenerator
 		prelude.emitLine(*g.importMapCSPPos)
-		prelude.stmts = append(prelude.stmts, buildApplyImportMapCSPAST())
+		prelude.stmts = append(prelude.stmts, buildApplyImportMapCSPAST(), pageHeadHookAST(ctx.WriterName, true))
 		prelude.resetLine()
 		g.stmts = append(prelude.stmts, g.stmts...)
 	}
@@ -237,6 +242,9 @@ func (g *templateGenerator) generateElement(n *ElementNode) error {
 	if strings.EqualFold(n.Tag, "head") && g.ctx != nil && g.ctx.InjectActionsClient {
 		g.flushText()
 		g.stmts = append(g.stmts, buildWriteActionsClientIfHTMLAST(g.ctx.WriterName))
+	} else if strings.EqualFold(n.Tag, "head") && g.ctx != nil && g.ctx.WriterName == "goxWriter" {
+		g.flushText()
+		g.stmts = append(g.stmts, pageHeadHookAST(g.ctx.WriterName, false))
 	}
 
 	if err := g.generateChildren(n.Children); err != nil {
@@ -703,4 +711,18 @@ func templateImportMapHead(node TemplateNode) *TemplatePosition {
 		}
 	}
 	return nil
+}
+
+// Component renderers only receive a Writer. The page prepares its metadata
+// before output; nested heads ask the runtime writer to emit that metadata.
+func pageHeadHookAST(writer string, prepare bool) ast.Stmt {
+	source := "if head, ok := " + writer + ".(interface { GoxWritePageHead() }); ok { head.GoxWritePageHead() }"
+	if prepare {
+		source = "if head, ok := " + writer + ".(interface { GoxPreparePageHead([]byte, [][2]string, []byte, string) }); ok { head.GoxPreparePageHead(goxActionsClientScript, goxStaticImportMapEntries, goxStaticImportMapScript, goxStaticImportMapHash) }"
+	}
+	file, err := parser.ParseFile(token.NewFileSet(), "", "package main; func hook() {"+source+"}", 0)
+	if err != nil {
+		panic(err)
+	}
+	return file.Decls[0].(*ast.FuncDecl).Body.List[0]
 }

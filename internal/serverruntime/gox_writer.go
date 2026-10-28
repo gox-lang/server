@@ -94,7 +94,8 @@ type GoxWriter struct {
 	closing   bool
 	writeErr  error
 
-	stats GoxWriterStats
+	stats    GoxWriterStats
+	pageHead *goxPageHead
 }
 
 func newGoxWriter(res *responseRuntimeState, req *http.Request, compression server.CompressionConfig, isAction bool, traceDeep bool) *GoxWriter {
@@ -940,4 +941,32 @@ func (w *GoxWriter) writeAny(value any, escape bool) {
 			w.WriteRawBytes(b)
 		}
 	}
+}
+
+// goxPageHead carries request-local metadata from a Page into shared components.
+// It is not part of the SDK Writer contract or the cluster protocol.
+type goxPageHead struct {
+	actions []byte
+	entries [][2]string
+	script  []byte
+	hash    string
+}
+
+func (w *GoxWriter) GoxPreparePageHead(actions []byte, entries [][2]string, script []byte, hash string) {
+	if w.isAction || w.res == nil || !w.res.response.Headers.Contains("Content-Type", "text/html") {
+		return
+	}
+	w.pageHead = &goxPageHead{actions: actions, entries: entries, script: script, hash: hash}
+}
+
+func (w *GoxWriter) GoxWritePageHead() {
+	head := w.pageHead
+	if head == nil {
+		return
+	}
+	w.pageHead = nil
+	if len(head.actions) > 0 {
+		_, _ = w.Write(head.actions)
+	}
+	w.res.response.ImportMap.Runtime().WriteCompiled(w, head.entries, head.script, head.hash)
 }
