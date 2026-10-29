@@ -67,6 +67,7 @@ type Runtime struct {
 
 	project         *project.Project
 	paths           toolchain.Paths
+	goPreflight     goSourcePreflight
 	hotReload       *hotreload.Index
 	hotReloadEngine *hotreload.Engine
 

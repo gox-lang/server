@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	goxcompiler "github.com/gox-lang/server/internal/goxcompiler"
+	"github.com/gox-lang/server/internal/hotreload"
 	"github.com/gox-lang/server/internal/logs"
 	"github.com/gox-lang/server/internal/watcher"
 )
@@ -21,18 +22,21 @@ func (r *Runtime) handleGoSourceHotReloadEvent(event watcher.Event) {
 		return
 	}
 
-	// Keep the currently loaded plugins serving when the candidate sources are
-	// unsafe. Compilation repeats this check before producing any new plugin.
-	if err := goxcompiler.ValidateProjectGoGoroutineSafety(r.projectRoot()); err != nil {
+	r.checkGoSourceRestart(event, dependents.Entries)
+}
+
+func (r *Runtime) checkGoSourceRestart(event watcher.Event, affected []hotreload.ReloadEntry) {
+	entries, err := r.validateGoSourceRestart(affected)
+	if err != nil {
 		logs.Warm("Go source compilation rejected after %s; keeping active server: %v", event.Rel, err)
 		return
 	}
 
 	request := RestartRequest{
 		Reason:          RestartReasonGoSourceChanged,
-		ChangedPath:     dependents.FileAbsPath,
+		ChangedPath:     event.Path,
 		ChangedRelPath:  filepath.ToSlash(strings.TrimSpace(event.Rel)),
-		AffectedEntries: dependents.Entries,
+		AffectedEntries: entries,
 	}
 	if !r.requestRestart(request) {
 		return

@@ -42,6 +42,7 @@ func TestGoSourceChangeCompletesOrderedRuntimeRestart(t *testing.T) {
 	warmup := LoadDynamicWarmupCache(root)
 	runtime := &Runtime{
 		ProjectRoot:   root,
+		goPreflight:   goSourcePreflight{validate: func([]hotreload.ReloadEntry) error { return nil }},
 		hotReload:     index,
 		dynamicWarmup: warmup,
 		goxRoutes: map[string]*GoxRouteRuntime{

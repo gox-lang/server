@@ -27,7 +27,7 @@ func TestGoSourceHotReloadRequestsRestartForAffectedEntries(t *testing.T) {
 					Files:      []string{filepath.Join(packageDir, "billing.go")},
 				}},
 			})
-			runtime := &Runtime{ProjectRoot: root, hotReload: index}
+			runtime := &Runtime{ProjectRoot: root, hotReload: index, goPreflight: goSourcePreflight{validate: func([]hotreload.ReloadEntry) error { return nil }}}
 
 			runtime.handleGoSourceHotReloadEvent(watcher.Event{
 				Path: changed,
@@ -113,7 +113,7 @@ func TestGoSourceHotReloadRejectsUnsafeEditAndRecoversAfterCorrection(t *testing
 		EntryPath: "app/config.gox", EntryAbsPath: entry,
 		GoPackages: []goxcompiler.CompileGoPackage{{ImportPath: "example/billing", Dir: packageDir, Files: []string{changed}}},
 	})
-	runtime := &Runtime{ProjectRoot: root, hotReload: index}
+	runtime := &Runtime{ProjectRoot: root, hotReload: index, goPreflight: goSourcePreflight{validate: func([]hotreload.ReloadEntry) error { return nil }}}
 	event := watcher.Event{Path: changed, Rel: "billing/worker.go", Op: watcher.OpWrite}
 	write := func(source string) {
 		t.Helper()

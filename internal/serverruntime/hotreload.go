@@ -20,6 +20,12 @@ func (r *Runtime) configureHotReloadEngine() {
 }
 
 func (r *Runtime) handleHotReloadEvent(event watcher.Event) {
+	if r.hasPendingGoSourceRestart() {
+		dependents, _ := r.hotReload.Dependents(event.Path)
+		r.checkGoSourceRestart(event, dependents.Entries)
+		return
+	}
+
 	if isGoxErrorFileEvent(event) {
 		if isHotReloadDeleteEvent(event) {
 			r.unmountGoxErrorRuntime()
