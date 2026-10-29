@@ -14,14 +14,14 @@ test('Action forms preserve typed inputs including unchecked checkboxes', async 
  globalThis.HTMLInputElement = Input;
  try {
   const code = source.slice(source.indexOf('function formField('), source.indexOf('function normalizeActionArgs('));
-  const bind = new Function('signatures','normalizeClientValue','FormData','err','isMultipleFileField','validFormFile',code+';return argsFromForm;')(
-   { preview: ['name','age','active'] }, normalizeClientValue, class {}, (...args)=>args, ()=>false, ()=>true);
+  const bind = new Function('normalizeClientValue','FormData','err','isMultipleFileField','validFormFile',code+';return argsFromForm;')(
+   normalizeClientValue, class {}, (...args)=>args, ()=>false, ()=>true);
   const fields = { active: new Input({type:'checkbox',checked:false}), age: new Input({type:'number',valueAsNumber:42}), name: new Input({type:'text',value:'Ana'}) };
   const form = {elements:{namedItem:name=>fields[name]}};
-  assert.deepEqual(bind('preview',form), [['Ana',42,false],null]);
+  assert.deepEqual(bind('preview',form,{ preview: ['name','age','active'] }), [['Ana',42,false],null]);
   fields.active.checked=true;
-  assert.deepEqual(bind('preview',form), [['Ana',42,true],null]);
+  assert.deepEqual(bind('preview',form,{ preview: ['name','age','active'] }), [['Ana',42,true],null]);
   fields.age.valueAsNumber=NaN;
-  assert.equal(bind('preview',form)[1][0],'INVALID_ARGUMENTS');
+  assert.equal(bind('preview',form,{ preview: ['name','age','active'] })[1][0],'INVALID_ARGUMENTS');
  } finally { globalThis.HTMLInputElement = previous; globalThis.Element = previousElement; }
 });

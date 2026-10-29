@@ -436,9 +436,6 @@ function readActionSignatures(){
     return value&&typeof value==="object"&&!Array.isArray(value)?value:{};
   }catch{return {};}
 }
-const signatures=readActionSignatures();
-const known=new Set(Object.keys(signatures));
-const route=location.pathname||"/";
 const cache=new Map();
 function err(kind,message,action,status,cause){return new GoxActionError(kind,message,action,status,cause)}
 function isFileArrayArg(value){
@@ -513,7 +510,7 @@ function formField(form,name){
   if(elements&&typeof elements.namedItem==="function") return elements.namedItem(name);
   return elements?elements[name]:null;
 }
-function argsFromForm(action,form){
+function argsFromForm(action,form,signatures){
   const signature=signatures[action];
   if(!Array.isArray(signature)) return [null,err("INVALID_ARGUMENTS",action+"(): action signature not found",action)];
   const fd=new FormData(form);
@@ -540,9 +537,9 @@ function argsFromForm(action,form){
   }
   return [args,null];
 }
-function normalizeActionArgs(action,args){
+function normalizeActionArgs(action,args,signatures){
   if(args.length===1&&typeof HTMLFormElement!=="undefined"&&args[0] instanceof HTMLFormElement){
-    return argsFromForm(action,args[0]);
+    return argsFromForm(action,args[0],signatures);
   }
   try{return [args.map(value=>normalizeClientValue(value).value),null];}
   catch(e){return [null,err("INVALID_ARGUMENTS",action+"(): arguments cannot be normalized",action,0,e)];}
@@ -623,8 +620,12 @@ async function readBody(response){
 }
 async function call(action,args){
   action=String(action);
-  if(!known.has(action)) return [null,err("ACTION_NOT_DEFINED","Action "+action+" is not defined on this page.",action)];
-  const normalized=normalizeActionArgs(action,args);
+  // Capture the current document context per invocation, before any await.
+  // Client-side navigation can replace metadata without reloading this module.
+  const signatures=readActionSignatures();
+  const route=location.pathname||"/";
+  if(!Object.prototype.hasOwnProperty.call(signatures,action)) return [null,err("ACTION_NOT_DEFINED","Action "+action+" is not defined on this page.",action)];
+  const normalized=normalizeActionArgs(action,args,signatures);
   if(normalized[1]) return [null,normalized[1]];
   args=normalized[0];
   const built=buildActionBody(args,action);
@@ -667,15 +668,15 @@ async function call(action,args){
 const target={};
 const Actions=new Proxy(target,{
   get(_,prop){
-    if(prop==="__goxActions") return Array.from(known);
+    if(prop==="__goxActions") return Object.keys(readActionSignatures());
     if(prop===Symbol.toStringTag) return "GoxActions";
     if(typeof prop!=="string") return undefined;
     if(!cache.has(prop)) cache.set(prop,(...args)=>call(prop,args));
     return cache.get(prop);
   },
-  has(_,prop){return typeof prop==="string"&&known.has(prop)},
-  ownKeys(){return Array.from(known)},
-  getOwnPropertyDescriptor(_,prop){if(typeof prop==="string"&&known.has(prop)) return {enumerable:true,configurable:true};}
+  has(_,prop){return typeof prop==="string"&&Object.prototype.hasOwnProperty.call(readActionSignatures(),prop)},
+  ownKeys(){return Object.keys(readActionSignatures())},
+  getOwnPropertyDescriptor(_,prop){if(typeof prop==="string"&&Object.prototype.hasOwnProperty.call(readActionSignatures(),prop)) return {enumerable:true,configurable:true};}
 });
 export {GoxActionError};
 export default Actions;

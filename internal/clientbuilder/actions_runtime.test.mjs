@@ -331,3 +331,60 @@ test("Opaque redirects fail safely instead of replaying Action arguments", async
   assert.equal(value, null);
   assert.ok(error);
 });
+
+test("Actions follow current route and metadata after client-side navigation", async () => {
+  const previousDocument = globalThis.document;
+  const previousLocation = globalThis.location;
+  const previousFetch = globalThis.fetch;
+  let metadata = { Logout: [] };
+  const calls = [];
+  let finish;
+  const pending = new Promise((resolve) => { finish = resolve; });
+
+  try {
+    globalThis.document = {
+      getElementById: () => metadata === null ? null : { textContent: JSON.stringify(metadata) },
+    };
+    globalThis.location = { pathname: "/dashboard" };
+    globalThis.fetch = async (url, options) => {
+      calls.push([url, options.headers["Invoke-Action"]]);
+      if (url === "/dashboard") return pending;
+      return successResponse("Espera 9 min antes de solicitar otro enlace.", {
+        "Action-Response": "error", "Action-Type": "text",
+      });
+    };
+
+    const logout = Actions.Logout;
+    const inFlight = logout();
+    metadata = { RequestPasswordChange: [] };
+    globalThis.location.pathname = "/dashboard/account";
+
+    assert.deepEqual(Object.keys(Actions), ["RequestPasswordChange"]);
+    assert.deepEqual(Actions.__goxActions, ["RequestPasswordChange"]);
+    assert.equal("Logout" in Actions, false);
+    assert.equal((await logout())[1].type, "ACTION_NOT_DEFINED");
+
+    const [, error] = await Actions.RequestPasswordChange();
+    assert.equal(error.type, "ACTION_ERROR");
+    assert.equal(error.message, "Espera 9 min antes de solicitar otro enlace.");
+    assert.deepEqual(calls, [
+      ["/dashboard", "Logout"],
+      ["/dashboard/account", "RequestPasswordChange"],
+    ]);
+
+    finish(successResponse("true", { "Action-Type": "boolean" }));
+    assert.deepEqual(await inFlight, [true, null]);
+
+    // Going back and removing metadata must not retain actions from the account.
+    metadata = { Logout: [] };
+    globalThis.location.pathname = "/dashboard";
+    assert.equal((await Actions.RequestPasswordChange())[1].type, "ACTION_NOT_DEFINED");
+    metadata = null;
+    assert.deepEqual(Object.keys(Actions), []);
+    assert.equal((await logout())[1].type, "ACTION_NOT_DEFINED");
+  } finally {
+    globalThis.document = previousDocument;
+    globalThis.location = previousLocation;
+    globalThis.fetch = previousFetch;
+  }
+});

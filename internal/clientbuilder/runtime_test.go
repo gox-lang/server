@@ -96,8 +96,8 @@ func TestGoxActionsRuntimeUsesMetadataAndFormSupport(t *testing.T) {
 	for _, want := range []string{
 		`import {htmlToNode,normalizeClientValue} from "/_gox/client/values.js"`,
 		`document.getElementById("_GOX-ACTIONS")`,
-		`Object.keys(signatures)`,
-		`argsFromForm(action,args[0])`,
+		`Object.keys(readActionSignatures())`,
+		`argsFromForm(action,args[0],signatures)`,
 		`new FormData(form)`,
 		`elements.namedItem`,
 		`field.type==="file"&&field.multiple`,
